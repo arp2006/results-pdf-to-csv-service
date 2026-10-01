@@ -1,0 +1,14 @@
+venv/
+.venv/
+
+test
+test/
+
+*.csv
+__pycache__/
+
+.git
+.gitignore
+
+.env
+README.md
