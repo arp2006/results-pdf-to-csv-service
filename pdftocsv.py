@@ -1,12 +1,12 @@
 import pdfplumber, re, csv, statistics
 from collections import defaultdict
 
-PDF = "/home/arp/Downloads/s1w25.pdf"
+PDF = "SEM-I__I_T__WINTER_2025.pdf"        # <-- change to your PDF's path
 OUT_REGULAR = "results_regular.csv"        # <-- change to where you want this CSV
 OUT_REPEATER = "results_repeater.csv"      # <-- change to where you want this CSV
 
 STATUS_WORDS = {"Regular", "Repeater", "ATKT", "Fresh", "New"}
-COMPONENT_LABELS = {"T1", "O1", "E1", "I1"}
+COMPONENT_LABELS = ["T1", "O1", "E1", "I1"]   # order matters — fixed column order below
 NAME_STOP_WORDS = {"External", "Internal", "TOT", "GP", "TOTAL", "RESUL", "REMAR"}
 NAME_STOP_PATTERN = re.compile(r'^\(\d+/\d+\)$')
 
@@ -82,14 +82,30 @@ def build_subject_names(rows, sorted_tops, code_row_top, code_positions):
                 if lo <= w['x0'] < hi and w['text'] not in (code, ':') and w['text'] not in NAME_STOP_WORDS:
                     parts.append((top, w['x0'], w['text']))
         parts.sort()
-        names[code] = " ".join(p[2] for p in parts).strip() or code
+        full_name = " ".join(p[2] for p in parts).strip()
+        # Drop the trailing grading-scheme tag, e.g. "(THEORY)" / "(TERM WORK AND ORAL)"
+        clean_name = re.sub(r'\s*\([^)]*\)\s*$', '', full_name).strip()
+        names[code] = clean_name or full_name or code
+
+    # Two subjects can share the same title once the grading-scheme tag is
+    # stripped (e.g. a theory course and its practical/term-work counterpart).
+    # Keep the first occurrence as-is; prefix "Lab " on any repeat so columns
+    # stay distinguishable.
+    seen_names = set()
+    for code, _x0 in ordered:
+        name = names[code]
+        if name in seen_names:
+            names[code] = f"Lab {name}"
+        else:
+            seen_names.add(name)
     return names
 
 
 def extract(pdf_path):
     all_codes_seen = []       # first-seen order, across the whole document
     code_to_name = {}
-    records = []
+    raw_records = []          # seat_no/name/... + code -> {component: value}
+    component_present = defaultdict(set)   # code -> set of components seen anywhere in the doc
     mu_re = re.compile(r'\(MU\d+\)')
 
     with pdfplumber.open(pdf_path) as pdf:
@@ -144,8 +160,10 @@ def extract(pdf_path):
                             mu_code = piece
                         mu_code = mu_code.strip("()")
 
-                    subject_totals = defaultdict(float)
-                    subject_seen = set()
+                    # code -> {"T1": 19.0, "E1": 15.0, "I1": 22.0, ...} — one dict per subject,
+                    # keeping each component separate (no summing) so we can report exactly
+                    # which fields apply to each subject.
+                    subject_components = defaultdict(dict)
                     gpa = ""
                     k = i + 1
                     while k < len(sorted_tops):
@@ -162,8 +180,8 @@ def extract(pdf_path):
                                 if code:
                                     val = parse_mark(w['text'])
                                     if val is not None:
-                                        subject_totals[code] += val
-                                        subject_seen.add(code)
+                                        subject_components[code][label] = val
+                                        component_present[code].add(label)
                         elif label == 'TOT' and r2[0]['x0'] < 60:
                             decimals = [w for w in r2 if re.fullmatch(r'\d+\.\d+', w['text'])]
                             if decimals:
@@ -172,16 +190,41 @@ def extract(pdf_path):
                             break
                         k += 1
 
-                    rec = {"seat_no": seat_word['text'], "name": name, "status": status_word,
-                           "mu_code": mu_code, "gpa": gpa}
-                    for c in code_positions:
-                        rec[code_to_name.get(c, c)] = subject_totals[c] if c in subject_seen else ""
-                    records.append(rec)
+                    raw_records.append({
+                        "seat_no": seat_word['text'], "name": name, "status": status_word,
+                        "mu_code": mu_code, "gpa": gpa, "subjects": subject_components,
+                    })
                     i = k
                     continue
                 i += 1
 
-    fieldnames = ["seat_no", "name", "status", "mu_code", "gpa"] + [code_to_name.get(c, c) for c in all_codes_seen]
+    # Build column list: for each subject, only the components that occurred *anywhere*
+    # in the document for that subject, in T1/O1/E1/I1 order, plus a computed TOT.
+    subject_columns = {}  # code -> ordered list of (field_key, "component_label_or_TOT")
+    for code in all_codes_seen:
+        present = [lbl for lbl in COMPONENT_LABELS if lbl in component_present.get(code, set())]
+        name = code_to_name.get(code, code)
+        cols = [(f"{name} ({lbl})", lbl) for lbl in present]
+        cols.append((f"{name} (TOT)", "TOT"))
+        subject_columns[code] = cols
+
+    fieldnames = ["seat_no", "name", "status", "mu_code", "gpa"]
+    for code in all_codes_seen:
+        fieldnames += [col for col, _ in subject_columns[code]]
+
+    records = []
+    for r in raw_records:
+        rec = {"seat_no": r["seat_no"], "name": r["name"], "status": r["status"],
+               "mu_code": r["mu_code"], "gpa": r["gpa"]}
+        for code in all_codes_seen:
+            values = r["subjects"].get(code, {})
+            for col, lbl in subject_columns[code]:
+                if lbl == "TOT":
+                    rec[col] = sum(values.values()) if values else ""
+                else:
+                    rec[col] = values.get(lbl, "")
+        records.append(rec)
+
     return records, fieldnames
 
 
