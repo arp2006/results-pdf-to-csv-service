@@ -2,7 +2,8 @@ import pdfplumber, re, csv, statistics
 from collections import defaultdict
 
 PDF = "/home/arp/Downloads/s1w25.pdf"
-OUT = "results.csv"
+OUT_REGULAR = "results_regular.csv"        # <-- change to where you want this CSV
+OUT_REPEATER = "results_repeater.csv"      # <-- change to where you want this CSV
 
 STATUS_WORDS = {"Regular", "Repeater", "ATKT", "Fresh", "New"}
 COMPONENT_LABELS = {"T1", "O1", "E1", "I1"}
@@ -120,6 +121,8 @@ def extract(pdf_path):
                                   and w['text'] not in STATUS_WORDS]
                     name = " ".join(name_words)
 
+                    status_word = next((w['text'] for w in row if w['text'] in STATUS_WORDS), "")
+
                     # MU code: may wrap — the closing ")" can sit alone on the next row
                     mu_code = ""
                     mu_word = next((w for w in row if w['text'].startswith('(MU')), None)
@@ -169,7 +172,8 @@ def extract(pdf_path):
                             break
                         k += 1
 
-                    rec = {"seat_no": seat_word['text'], "name": name, "mu_code": mu_code, "gpa": gpa}
+                    rec = {"seat_no": seat_word['text'], "name": name, "status": status_word,
+                           "mu_code": mu_code, "gpa": gpa}
                     for c in code_positions:
                         rec[code_to_name.get(c, c)] = subject_totals[c] if c in subject_seen else ""
                     records.append(rec)
@@ -177,17 +181,28 @@ def extract(pdf_path):
                     continue
                 i += 1
 
-    fieldnames = ["seat_no", "name", "mu_code", "gpa"] + [code_to_name.get(c, c) for c in all_codes_seen]
+    fieldnames = ["seat_no", "name", "status", "mu_code", "gpa"] + [code_to_name.get(c, c) for c in all_codes_seen]
     return records, fieldnames
 
 
-if __name__ == "__main__":
-    records, fieldnames = extract(PDF)
-    with open(OUT, "w", newline="") as f:
+def write_csv(path, records, fieldnames):
+    with open(path, "w", newline="") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for r in records:
             writer.writerow({fn: r.get(fn, "") for fn in fieldnames})
-    print(f"Wrote {len(records)} records to {OUT}")
+
+
+if __name__ == "__main__":
+    records, fieldnames = extract(PDF)
+
+    regular = [r for r in records if r.get("status") != "Repeater"]
+    repeater = [r for r in records if r.get("status") == "Repeater"]
+
+    write_csv(OUT_REGULAR, regular, fieldnames)
+    write_csv(OUT_REPEATER, repeater, fieldnames)
+
+    print(f"Wrote {len(regular)} records to {OUT_REGULAR}")
+    print(f"Wrote {len(repeater)} records to {OUT_REPEATER}")
     # for r in records[:3]:
     #     print(r)

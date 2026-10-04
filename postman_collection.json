@@ -1,0 +1,277 @@
+{
+	"info": {
+		"_postman_id": "b1a2c3d4-e5f6-7890-abcd-ef1234567890",
+		"name": "Mumbai University PDF Result API",
+		"description": "Postman collection for testing the Mumbai University PDF Result extraction API endpoints.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health Check",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						""
+					]
+				},
+				"description": "Check if API is running and list available endpoints."
+			},
+			"response": []
+		},
+		{
+			"name": "Extract JSON - All Students",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/extract?status=all",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"extract"
+					],
+					"query": [
+						{
+							"key": "status",
+							"value": "all",
+							"description": "Options: all, regular, repeater"
+						}
+					]
+				},
+				"description": "Upload PDF and receive extracted JSON data for all students."
+			},
+			"response": []
+		},
+		{
+			"name": "Extract JSON - Regular Students",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/extract?status=regular",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"extract"
+					],
+					"query": [
+						{
+							"key": "status",
+							"value": "regular",
+							"description": "Options: all, regular, repeater"
+						}
+					]
+				},
+				"description": "Upload PDF and receive extracted JSON data for regular students only."
+			},
+			"response": []
+		},
+		{
+			"name": "Extract JSON - Repeater Students",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/extract?status=repeater",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"extract"
+					],
+					"query": [
+						{
+							"key": "status",
+							"value": "repeater",
+							"description": "Options: all, regular, repeater"
+						}
+					]
+				},
+				"description": "Upload PDF and receive extracted JSON data for repeater students only."
+			},
+			"response": []
+		},
+		{
+			"name": "Extract CSV - All Students",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/extract/csv?status=all",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"extract",
+						"csv"
+					],
+					"query": [
+						{
+							"key": "status",
+							"value": "all",
+							"description": "Options: all, regular, repeater"
+						}
+					]
+				},
+				"description": "Upload PDF and download CSV containing all student records."
+			},
+			"response": []
+		},
+		{
+			"name": "Extract CSV - Regular Students",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/extract/csv?status=regular",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"extract",
+						"csv"
+					],
+					"query": [
+						{
+							"key": "status",
+							"value": "regular",
+							"description": "Options: all, regular, repeater"
+						}
+					]
+				},
+				"description": "Upload PDF and download CSV containing regular student records."
+			},
+			"response": []
+		},
+		{
+			"name": "Extract CSV - Repeater Students",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/extract/csv?status=repeater",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"extract",
+						"csv"
+					],
+					"query": [
+						{
+							"key": "status",
+							"value": "repeater",
+							"description": "Options: all, regular, repeater"
+						}
+					]
+				},
+				"description": "Upload PDF and download CSV containing repeater student records."
+			},
+			"response": []
+		},
+		{
+			"name": "Extract ZIP - Regular & Repeater CSVs",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": []
+						}
+					]
+				},
+				"url": {
+					"raw": "{{baseUrl}}/extract/zip",
+					"host": [
+						"{{baseUrl}}"
+					],
+					"path": [
+						"extract",
+						"zip"
+					]
+				},
+				"description": "Upload PDF and download a ZIP containing both results_regular.csv and results_repeater.csv."
+			},
+			"response": []
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}
