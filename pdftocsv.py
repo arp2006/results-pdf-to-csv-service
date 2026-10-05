@@ -175,6 +175,8 @@ def extract(pdf_path):
                     # which fields apply to each subject.
                     subject_components = defaultdict(dict)
                     gpa = ""
+                    total = ""
+                    result = ""
                     k = i + 1
                     while k < len(sorted_tops):
                         r2 = rows[sorted_tops[k]]
@@ -196,13 +198,31 @@ def extract(pdf_path):
                             decimals = [w for w in r2 if re.fullmatch(r'\d+\.\d+', w['text'])]
                             if decimals:
                                 gpa = max(decimals, key=lambda w: w['x0'])['text']
-                            k += 1
-                            break
+
+                        # On every row, scan for total marks and result if not yet found
+                        if not total:
+                            for w in r2:
+                                # Total appears as (616) or (478) — a parenthesized integer
+                                m = re.fullmatch(r'\((\d+)\)', w['text'])
+                                if m:
+                                    total = m.group(1)
+                                    break
+                        if not result:
+                            for w in r2:
+                                upper = w['text'].upper()
+                                # Handle split words: FAILE(D), PASS, FAIL, etc.
+                                if upper.startswith('PASS'):
+                                    result = 'PASS'
+                                    break
+                                elif upper.startswith('FAIL'):
+                                    result = 'FAILED'
+                                    break
                         k += 1
 
                     raw_records.append({
                         "seat_no": seat_word['text'], "name": name, "gender": gender, "status": status_word,
-                        "mu_code": mu_code, "gpa": gpa, "subjects": subject_components,
+                        "mu_code": mu_code, "gpa": gpa, "total": total, "result": result,
+                        "subjects": subject_components,
                     })
                     i = k
                     continue
@@ -218,14 +238,15 @@ def extract(pdf_path):
         cols.append((f"{name} (TOT)", "TOT"))
         subject_columns[code] = cols
 
-    fieldnames = ["seat_no", "name", "gender", "status", "mu_code", "gpa"]
+    fieldnames = ["seat_no", "name", "gender", "status", "mu_code", "gpa", "total", "result"]
     for code in all_codes_seen:
         fieldnames += [col for col, _ in subject_columns[code]]
 
     records = []
     for r in raw_records:
         rec = {"seat_no": r["seat_no"], "name": r["name"], "gender": r["gender"],
-               "status": r["status"], "mu_code": r["mu_code"], "gpa": r["gpa"]}
+               "status": r["status"], "mu_code": r["mu_code"], "gpa": r["gpa"],
+               "total": r["total"], "result": r["result"]}
         for code in all_codes_seen:
             values = r["subjects"].get(code, {})
             for col, lbl in subject_columns[code]:
@@ -258,4 +279,5 @@ if __name__ == "__main__":
     print(f"Wrote {len(regular)} records to {OUT_REGULAR}")
     print(f"Wrote {len(repeater)} records to {OUT_REPEATER}")
     # for r in records[:3]:
+    #     print(r)
     #     print(r)
