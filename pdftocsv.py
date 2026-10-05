@@ -6,6 +6,7 @@ OUT_REGULAR = "results_regular.csv"        # <-- change to where you want this C
 OUT_REPEATER = "results_repeater.csv"      # <-- change to where you want this CSV
 
 STATUS_WORDS = {"Regular", "Repeater", "ATKT", "Fresh", "New"}
+GENDER_WORDS = {"MALE", "FEMALE"}
 COMPONENT_LABELS = ["T1", "O1", "E1", "I1"]   # order matters — fixed column order below
 NAME_STOP_WORDS = {"External", "Internal", "TOT", "GP", "TOTAL", "RESUL", "REMAR"}
 NAME_STOP_PATTERN = re.compile(r'^\(\d+/\d+\)$')
@@ -160,6 +161,15 @@ def extract(pdf_path):
                             mu_code = piece
                         mu_code = mu_code.strip("()")
 
+                    status_x0 = next((w['x0'] for w in row if w['text'] in STATUS_WORDS), status_col_start)
+                    gender = next(
+                        (w['text'].upper() for w in row
+                         if w['text'].upper() in GENDER_WORDS
+                         and w['x0'] > status_x0
+                         and (mu_word is None or w['x0'] < mu_word['x0'])),
+                        ""
+                    )
+
                     # code -> {"T1": 19.0, "E1": 15.0, "I1": 22.0, ...} — one dict per subject,
                     # keeping each component separate (no summing) so we can report exactly
                     # which fields apply to each subject.
@@ -191,7 +201,7 @@ def extract(pdf_path):
                         k += 1
 
                     raw_records.append({
-                        "seat_no": seat_word['text'], "name": name, "status": status_word,
+                        "seat_no": seat_word['text'], "name": name, "gender": gender, "status": status_word,
                         "mu_code": mu_code, "gpa": gpa, "subjects": subject_components,
                     })
                     i = k
@@ -208,14 +218,14 @@ def extract(pdf_path):
         cols.append((f"{name} (TOT)", "TOT"))
         subject_columns[code] = cols
 
-    fieldnames = ["seat_no", "name", "status", "mu_code", "gpa"]
+    fieldnames = ["seat_no", "name", "gender", "status", "mu_code", "gpa"]
     for code in all_codes_seen:
         fieldnames += [col for col, _ in subject_columns[code]]
 
     records = []
     for r in raw_records:
-        rec = {"seat_no": r["seat_no"], "name": r["name"], "status": r["status"],
-               "mu_code": r["mu_code"], "gpa": r["gpa"]}
+        rec = {"seat_no": r["seat_no"], "name": r["name"], "gender": r["gender"],
+               "status": r["status"], "mu_code": r["mu_code"], "gpa": r["gpa"]}
         for code in all_codes_seen:
             values = r["subjects"].get(code, {})
             for col, lbl in subject_columns[code]:
