@@ -1,95 +1,186 @@
-# PDF Result-Register → CSV Extractor
+# Mumbai University Results PDF → CSV Service
 
-## What this is
-A Python script (`pdftocsv.py`) that parses a Mumbai University semester exam
-result register PDF and outputs a CSV with one row per student:
-seat number, name, MU enrollment code, per-subject marks, and SGPA.
+A FastAPI microservice that takes a **Mumbai University semester result PDF** (Office Register format) and extracts every student's marks into a clean, structured CSV — with one row per student and one column per subject component.
 
-The next step is to wrap this in an API so it can be called instead of run
-by hand. This doc explains what the script does and what's safe to change.
+> **Tested against:** I.T., Semester I, Winter 2025 Office Register layout.  
+> Should work for other branches/semesters since parsing is position-based, but worth spot-checking any new register type.
 
-## Input / Output
-- **Input:** a text-based (non-scanned) PDF of this specific result-register
-  format — one from the University of Mumbai's OFFICE REGISTER series
-  (e.g. `SEM-I__I_T__WINTER_2025.pdf`). Each page has a header table
-  listing subject codes/titles, followed by one block per student.
-- **Output:** a CSV file, one row per student, with these columns:
-  - `seat_no`, `name`, `mu_code`, `gpa`
-  - one column per subject, named from the subject title found in the
-    PDF's own header (e.g. `Applied Physics (THEORY)`), containing that
-    student's total marks for that subject (blank if not applicable /
-    pass-fail-only course)
+---
 
-## How it works (so you know what's safe to touch)
-1. Extracts every word on every page with its (x, y) position using
-   `pdfplumber` — this format doesn't parse reliably with plain text
-   extraction because columns are position-based, not whitespace-delimited.
-2. Groups words into visual rows by y-position, then finds the row
-   listing the 5-digit subject codes to learn each subject's x-position
-   (column).
-3. Reads the subject *names* from the header rows above the code row,
-   using the same x-position ranges (only done once, off the first page
-   that has a table — the header repeats identically on every page).
-4. For each student block (identified by a seat number in the leftmost
-   column), it reads the `T1`/`O1`/`E1`/`I1` rows (term work / oral /
-   external / internal marks) and sums whichever of those apply to each
-   subject, matching each value to the nearest subject column.
-5. GPA is read off the `TOT` row as the right-most decimal value on that
-   line (this is the official SGPA field).
-6. The MU enrollment code (`(MU##############)`) occasionally wraps
-   across two lines in the source PDF — the script detects and rejoins
-   this automatically.
+## Features
 
-## Known limitations
-- Built and tested against one specific register layout (I.T., Semester I,
-  Winter 2025, 53 pages, 100 students). Different branches/semesters
-  *should* work unchanged since the parsing is entirely position-based,
-  not hardcoded to specific subjects, but haven't been tested — worth
-  spot-checking a few rows against the source PDF whenever an entirely
-  new register is fed in.
-- Scanned/image-only PDFs will not work — this needs OCR first, which
-  isn't implemented here.
-- Subjects that are pass/fail only with no numeric marks (in this PDF,
-  "Induction cum Universal Human Values") come out blank, not zero.
+- Parses text-based Mumbai University result PDFs (via `pdfplumber`)
+- Extracts seat number, name, gender, MU code, status, SGPA, result, and per-subject marks
+- Splits subjects into their components — `T1`, `O1`, `E1`, `I1` — plus a computed `TOT` column per subject
+- Three response formats: **JSON**, **CSV download**, or **ZIP** (regular + repeater in separate files)
+- Filter by student status: `all`, `regular`, or `repeater`
+- Fully Dockerised; interactive API docs at `/docs`
 
-## Dependencies
-- Python 3.x
-- `pip install pdfplumber` (only external dependency)
+---
 
-## Running it standalone
+## Stack
+
+| Layer | Technology |
+|---|---|
+| API framework | FastAPI 0.x + Uvicorn |
+| PDF parsing | pdfplumber |
+| Containerisation | Docker + Docker Compose |
+| Python | 3.12 (Alpine) |
+
+---
+
+## Quick Start
+
+### With Docker (recommended)
+
 ```bash
-python3 pdftocsv.py
+docker compose up --build
 ```
-Edit the `PDF` and `OUT` variables at the top of the file to point at your
-input PDF and desired output path. `extract()` can also be imported and
-called directly — it returns `(records, fieldnames)` as a Python list of
-dicts, without touching the filesystem, which is probably the easiest
-entry point for wrapping this in an API (see below).
 
-## For the API build — you have full flexibility here
-There's no constraint on language, framework, or architecture for the API
-layer. Whatever's fastest for you to build and easiest for us to
-maintain is the right call. A few things worth knowing so you can decide:
+The API is available at `http://localhost:8000`.
 
-- The core logic is the `extract(pdf_path)` function in `pdftocsv.py` — it
-  takes a file path and returns `(records, fieldnames)` in memory, no
-  disk writes required. That makes it easy to drop into any Python
-  web framework (FastAPI, Flask, Django, whatever) as-is.
-- If you'd rather build the API in another language entirely (Node,
-  Go, etc.), the simplest integration is shelling out to this script
-  (or a thin wrapper around `extract()`) as a subprocess and reading
-  its CSV/JSON output — no need to port the parsing logic itself.
-- Output doesn't have to be CSV — `records` is just a list of plain
-  dicts, so returning JSON instead (or as well) is a trivial change,
-  whichever suits the API's consumers better.
-- Not opinionated on sync vs. async, file upload vs. path/URL input,
-  auth, rate limiting, etc. — design the endpoint however fits the
-  surrounding system.
-- Only real requirement: whatever wraps this should surface a clear
-  error if the input PDF doesn't match the expected register format
-  (e.g. no subject-code header row found), rather than silently
-  returning an empty/garbage CSV.
+### Without Docker
 
-## Files
-- `pdftocsv.py` — the extractor described above
-- `results_example.csv` — example output from a sample run (for reference only)
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+uvicorn api:app --reload
+```
+
+---
+
+## API Endpoints
+
+### `GET /`
+Health check — returns a list of available endpoints.
+
+---
+
+### `POST /extract`
+Upload a PDF and receive extracted results as **JSON**.
+
+**Query params**
+
+| Param | Values | Default |
+|---|---|---|
+| `status` | `all` · `regular` · `repeater` | `all` |
+
+**Example**
+```bash
+curl -X POST "http://localhost:8000/extract?status=regular" \
+  -F "file=@result.pdf"
+```
+
+**Response**
+```json
+{
+  "filename": "result.pdf",
+  "filter": "regular",
+  "total_students": 120,
+  "regular_students": 105,
+  "repeater_students": 15,
+  "columns": ["seat_no", "name", "status", "gender", "mu_code", "result", "sgpa", "Applied Physics (E1)", "..."],
+  "data": [{ "seat_no": "1234567", "name": "JOHN DOE", ... }]
+}
+```
+
+---
+
+### `POST /extract/csv`
+Upload a PDF and **download** the results as a CSV file.
+
+**Query params** — same `status` filter as above.
+
+**Example**
+```bash
+curl -X POST "http://localhost:8000/extract/csv?status=all" \
+  -F "file=@result.pdf" \
+  -o results.csv
+```
+
+Downloaded file is named `results.csv`, `results_regular.csv`, or `results_repeater.csv` depending on the filter.
+
+---
+
+### `POST /extract/zip`
+Upload a PDF and **download a ZIP** containing two CSVs:
+- `results_regular.csv` — regular students
+- `results_repeater.csv` — repeater students
+
+**Example**
+```bash
+curl -X POST "http://localhost:8000/extract/zip" \
+  -F "file=@result.pdf" \
+  -o results.zip
+```
+
+---
+
+## CSV Output Format
+
+| Column | Description |
+|---|---|
+| `seat_no` | Exam seat number |
+| `name` | Student full name |
+| `status` | `Regular` or `Repeater` |
+| `gender` | `MALE` or `FEMALE` |
+| `mu_code` | MU code (e.g. `(MU12345)`) |
+| `result` | `PASS` or `FAIL` |
+| `sgpa` | Semester GPA |
+| `{Subject} (T1)` | Theory internal marks (if present) |
+| `{Subject} (E1)` | Theory external / end-sem marks (if present) |
+| `{Subject} (O1)` | Oral marks (if present) |
+| `{Subject} (I1)` | Internal / TW marks (if present) |
+| `{Subject} (TOT)` | Sum of all present components for that subject |
+
+Only components that actually appear in the PDF get columns — no empty columns for absent components.
+
+---
+
+## Standalone CLI Usage
+
+`pdftocsv.py` can also be run directly to produce a CSV on disk without the API:
+
+```bash
+python pdftocsv.py result.pdf output.csv
+```
+
+---
+
+## Error Responses
+
+| Code | Reason |
+|---|---|
+| `400` | File is not a PDF, or the uploaded file is empty |
+| `422` | PDF parsed successfully but zero records extracted, or the parser crashed |
+
+---
+
+## Known Limitations
+
+- **Scanned / image PDFs are not supported.** The service requires a text-based PDF; OCR is not included.
+- Pass/fail-only subjects (e.g. Induction cum Universal Human Values) produce blank cells rather than a numeric score.
+- Subject names are read from the first page only. A structurally different page later in the document would fall back to raw subject codes.
+
+---
+
+## Project Structure
+
+```
+.
+├── api.py                  # FastAPI app and endpoints
+├── pdftocsv.py             # Core PDF parsing logic
+├── requirements.txt
+├── Dockerfile
+├── docker-compose.yml
+├── HOW_IT_WORKS.md         # Deep-dive into the parsing algorithm
+├── postman_collection.json # Ready-to-import Postman collection
+└── results_example.csv     # Sample output
+```
+
+---
+
+## Interactive Docs
+
+Once running, visit **http://localhost:8000/docs** for the auto-generated Swagger UI where you can upload PDFs and test all endpoints directly in the browser.
