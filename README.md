@@ -174,7 +174,7 @@ python pdftocsv.py result.pdf output.csv
 ├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
-├── HOW_IT_WORKS.md         # Deep-dive into the parsing algorithm
+├── ARCHITECTURE.md         # Deep-dive into the parsing algorithm
 ├── postman_collection.json # Ready-to-import Postman collection
 └── results_example.csv     # Sample output
 ```
