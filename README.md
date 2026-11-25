@@ -80,7 +80,7 @@ curl -X POST "http://localhost:8000/extract?status=regular" \
   "total_students": 120,
   "regular_students": 105,
   "repeater_students": 15,
-  "columns": ["seat_no", "name", "status", "gender", "mu_code", "result", "sgpa", "Applied Physics (E1)", "..."],
+  "columns": ["seat_no", "name", "gender", "status", "mu_code", "gpa", "total", "result", "Applied Physics (E1)", "..."],
   "data": [{ "seat_no": "1234567", "name": "JOHN DOE", ... }]
 }
 ```
@@ -123,15 +123,16 @@ curl -X POST "http://localhost:8000/extract/zip" \
 |---|---|
 | `seat_no` | Exam seat number |
 | `name` | Student full name |
-| `status` | `Regular` or `Repeater` |
+| `status` | `Regular`, `Repeater`, `ATKT`, `Fresh`, `New` |
 | `gender` | `MALE` or `FEMALE` |
-| `mu_code` | MU code (e.g. `(MU12345)`) |
-| `result` | `PASS` or `FAIL` |
-| `sgpa` | Semester GPA |
-| `{Subject} (T1)` | Theory internal marks (if present) |
-| `{Subject} (E1)` | Theory external / end-sem marks (if present) |
+| `mu_code` | MU enrollment code (e.g. `MU0341120YY0212345`) |
+| `gpa` | Semester GPA (SGPA) |
+| `total` | Total marks (parenthesised integer from PDF) |
+| `result` | `PASS` or `FAILED` |
+| `{Subject} (T1)` | Term Work marks (if present) |
+| `{Subject} (E1)` | External / end-sem exam marks (if present) |
 | `{Subject} (O1)` | Oral marks (if present) |
-| `{Subject} (I1)` | Internal / TW marks (if present) |
+| `{Subject} (I1)` | Internal marks (if present) |
 | `{Subject} (TOT)` | Sum of all present components for that subject |
 
 Only components that actually appear in the PDF get columns — no empty columns for absent components.

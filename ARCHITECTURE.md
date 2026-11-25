@@ -112,7 +112,7 @@ For each page, the script scans rows top-to-bottom looking for a **seat number**
 | `I1` | Internal marks |
 | `TOT` | The GPA/SGPA (grabbed from the rightmost decimal on this row) |
 
-Each mark value is matched to the nearest subject column using the X positions from Step 2 (with an 8-point tolerance). Pass/Fail result is also extracted by scanning for words starting with `PASS` or `FAIL`.
+Each mark value is matched to the nearest subject column using the X positions from Step 2 (with an 8-point tolerance). Pass/Fail result is also extracted by scanning for words starting with `PASS` or `FAIL` — stored as `PASS` or `FAILED`.
 
 ---
 
@@ -293,6 +293,7 @@ From the **seat row**, it reads:
 - `name` — words between X=100 and X=260 that aren't status words
 - `status` — first word matching `STATUS_WORDS` (`Regular`, `Repeater`, etc.)
 - `gender` — first word matching `GENDER_WORDS` (`MALE`/`FEMALE`) that appears after the status word
+- `result` — `PASS` or `FAILED`w
 - `mu_code` — a token starting with `(MU`. Because MU codes sometimes wrap to the next line (the closing `)` appears on a separate row), the script looks ahead up to 2 rows to find and rejoin the closing paren.
 
 From **subsequent rows** (until the next seat number):
